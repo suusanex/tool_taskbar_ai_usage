@@ -1,0 +1,38 @@
+<Window x:Class="TaskbarAiUsage.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Taskbar AI Usage" Height="520" Width="520" MinHeight="460" MinWidth="460"
+        ShowInTaskbar="True" Topmost="False" WindowStartupLocation="CenterScreen"
+        Background="{DynamicResource {x:Static SystemColors.WindowBrushKey}}">
+    <Grid Margin="20">
+        <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+        <TextBlock Text="AI usage" FontSize="22" FontWeight="SemiBold" Margin="0,0,0,14" />
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+            <StackPanel>
+                <GroupBox Header="Codex" Padding="12" Margin="0,0,0,12">
+                    <StackPanel>
+                        <DockPanel Margin="0,2"><TextBlock Text="5h remaining" /><TextBlock x:Name="Codex5h" DockPanel.Dock="Right" FontWeight="SemiBold" /></DockPanel>
+                        <TextBlock x:Name="Codex5hReset" Foreground="Gray" Margin="0,0,0,8" />
+                        <DockPanel Margin="0,2"><TextBlock Text="Weekly remaining" /><TextBlock x:Name="CodexWeekly" DockPanel.Dock="Right" FontWeight="SemiBold" /></DockPanel>
+                        <TextBlock x:Name="CodexWeeklyReset" Foreground="Gray" />
+                    </StackPanel>
+                </GroupBox>
+                <GroupBox Header="The X / Grok" Padding="12">
+                    <StackPanel>
+                        <DockPanel Margin="0,2"><TextBlock Text="Weekly remaining" /><TextBlock x:Name="GrokWeekly" DockPanel.Dock="Right" FontWeight="SemiBold" /></DockPanel>
+                        <TextBlock x:Name="GrokWeeklyReset" Foreground="Gray" />
+                    </StackPanel>
+                </GroupBox>
+            </StackPanel>
+        </ScrollViewer>
+        <StackPanel Grid.Row="2" Margin="0,14,0,10">
+            <TextBlock x:Name="AttemptText" TextWrapping="Wrap" />
+            <TextBlock x:Name="SuccessText" TextWrapping="Wrap" />
+            <TextBlock x:Name="FailureText" TextWrapping="Wrap" Foreground="Firebrick" />
+        </StackPanel>
+        <DockPanel Grid.Row="3">
+            <Button x:Name="RefreshButton" Content="更新" Width="92" Height="32" Click="Refresh_Click" />
+            <Button Content="終了" Width="92" Height="32" Margin="8,0,0,0" Click="Exit_Click" DockPanel.Dock="Right" />
+        </DockPanel>
+    </Grid>
+</Window>
