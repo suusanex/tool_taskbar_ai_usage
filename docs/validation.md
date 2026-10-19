@@ -18,13 +18,24 @@
 | JSON parser: 対象provider / 期間、欠損、型不正、範囲外、複数Codexとactive選択、%切捨て | 合格 |
 | CLI process: 非0終了、欠損実行ファイル、timeout時の子プロセス終了 | 合格 |
 | 更新の重複防止、失敗時に前回値を現在値として残さない | 合格 |
-| アイコン描画: 0 / 7 / 73 / 100 / `--`、100% / 150% / 200%相当の出力寸法 | 合格 |
+| アイコン描画: 0 / 7 / 73 / 100 / `--`、100% / 150% / 200% / 450% / 500%相当の出力寸法、非有限倍率拒否 | 合格 |
+| ドイツ語カルチャーで生成したJSONを実際に解析 | 合格 |
+| Windows終了時の同期停止、実行中CLIのkill/wait有界経路 | 合格 |
 | Closeを最小化として扱い、明示終了でのみCloseを許可するポリシー | 合格 |
-| `dotnet test TaskbarAiUsage.Tests\TaskbarAiUsage.Tests.csproj -c Release` | 25件合格 |
+| `dotnet test TaskbarAiUsage.Tests\TaskbarAiUsage.Tests.csproj -c Release` | 28件合格 |
 | `dotnet build TaskbarAiUsage\TaskbarAiUsage.csproj -c Release` | 成功、0警告、0エラー |
 | Windows x64 self-contained publish | 成功 |
 
-この環境には安定版 .NET 10 SDK がなく、.NET 11 RC SDKで `net10.0-windows` をビルドした。ビルドと発行は成功したが、出力には「プレビュー版の .NET を使用しています」というSDK警告がある。安定版 .NET 10 SDKでの再実行は未確認。
+この環境には安定版 .NET 10 SDK がなく、.NET 11 RC SDKで `net10.0-windows` をビルドした。ビルドと発行は成功したが、出力にはNETSDK1057（プレビュー版SDK使用）の情報メッセージがある。安定版 .NET 10 SDKでの再実行は未確認。
+
+## PR #2 Purpose Review の指摘対応
+
+Purpose Review round 1 の5件のinline指摘（重複1件を含む、4テーマ）に対応した。
+
+- アイコン倍率の任意上限を外し、0.5〜128倍を許容。非有限値・非正値と4096pxを超える寸法は拒否する。450% / 500%でそれぞれ144px / 160pxを生成する自動回帰テストを追加した。
+- テストJSON生成をculture-invariantにし、`de-DE` カルチャで小数を含むJSONを構築してparserで実際に解析する回帰テストを追加した。
+- `SessionEnding` は同期handlerに変更。終了時はタイマー停止・CancellationToken通知後、CLIをkillし最大2秒のProcess.WaitForExitで待つ。通常の「終了」は既存の非同期完了待ちを維持する。
+- process timeoutを標準出力・標準エラー・親プロセス終了待ちの共通deadlineに適用した。回帰fixtureは親終了後も子が標準出力pipeを保持する状況を作り、timeout後に次の更新が進むことを確認する。テストのfinallyでfixtureの子プロセスを必ず終了し、一時PIDファイルを消す。
 
 アイコン画像プレビューは `dotnet test` によりローカルの `artifacts\taskbar-icon-preview.png` に生成される。この画像とpublish出力は生成物であり、Git管理対象には含めない。
 

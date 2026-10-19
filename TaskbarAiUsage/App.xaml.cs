@@ -12,9 +12,9 @@ public partial class App : Application
         {
             var window = new MainWindow();
             MainWindow = window;
-            SessionEnding += async (_, _) =>
+            SessionEnding += (_, _) =>
             {
-                await window.BeginShutdownAsync();
+                window.BeginSessionShutdown();
                 Shutdown();
             };
             window.Show();

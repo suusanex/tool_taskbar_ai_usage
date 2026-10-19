@@ -21,7 +21,13 @@ public partial class MainWindow : Window
         var settings = AppSettings.Load(configPath);
         var cliPath = TokscalePathResolver.Resolve(settings.TokscalePath);
         updater = new UsageUpdater(new UsageProcess(cliPath, TimeSpan.FromSeconds(settings.CliTimeoutSeconds)));
-        updater.StateChanged += (_, state) => Dispatcher.Invoke(() => Render(state));
+        updater.StateChanged += (_, state) =>
+        {
+            if (Dispatcher.HasShutdownStarted || Dispatcher.HasShutdownFinished)
+                return;
+            try { Dispatcher.BeginInvoke(new Action(() => Render(state))); }
+            catch (InvalidOperationException) { }
+        };
         timer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(settings.UpdateIntervalSeconds) };
         timer.Tick += (_, _) => _ = RefreshInBackgroundAsync();
         timer.Start();
@@ -55,6 +61,15 @@ public partial class MainWindow : Window
         SafeLog.Write("application-exit", "Application is shutting down.");
         await activeRefresh;
         Close();
+    }
+
+    public void BeginSessionShutdown()
+    {
+        lifetimePolicy.AllowShutdown();
+        timer.Stop();
+        lifetime.Cancel();
+        SafeLog.Write("windows-session-ending", "Windows is ending the session.");
+        updater.StopForShutdown(TimeSpan.FromSeconds(2));
     }
 
     protected override void OnClosing(System.ComponentModel.CancelEventArgs e)

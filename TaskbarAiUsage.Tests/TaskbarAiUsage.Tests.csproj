@@ -19,7 +19,18 @@
   <ItemGroup>
     <Using Include="Xunit" />
     <ProjectReference Include="..\TaskbarAiUsage\TaskbarAiUsage.csproj" />
+    <ProjectReference Include="..\TaskbarAiUsage.ProcessFixture\TaskbarAiUsage.ProcessFixture.csproj" ReferenceOutputAssembly="false" />
     <None Include="Fixtures\tokscale-sanitized.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
+
+  <Target Name="CopyProcessFixture" AfterTargets="Build">
+    <ItemGroup>
+      <ProcessFixtureFiles Include="..\TaskbarAiUsage.ProcessFixture\bin\$(Configuration)\net10.0\TaskbarAiUsage.ProcessFixture.exe" />
+      <ProcessFixtureFiles Include="..\TaskbarAiUsage.ProcessFixture\bin\$(Configuration)\net10.0\TaskbarAiUsage.ProcessFixture.dll" />
+      <ProcessFixtureFiles Include="..\TaskbarAiUsage.ProcessFixture\bin\$(Configuration)\net10.0\TaskbarAiUsage.ProcessFixture.deps.json" />
+      <ProcessFixtureFiles Include="..\TaskbarAiUsage.ProcessFixture\bin\$(Configuration)\net10.0\TaskbarAiUsage.ProcessFixture.runtimeconfig.json" />
+    </ItemGroup>
+    <Copy SourceFiles="@(ProcessFixtureFiles)" DestinationFolder="$(OutDir)" />
+  </Target>
 
 </Project>

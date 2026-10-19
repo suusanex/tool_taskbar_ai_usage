@@ -11,9 +11,9 @@ public static class TaskbarIconRenderer
     {
         Validate(upper);
         Validate(lower);
-        if (scale is < 0.5 or > 4)
-            throw new ArgumentOutOfRangeException(nameof(scale));
         const int logicalSize = 32;
+        if (!double.IsFinite(scale) || scale < 0.5 || scale > 4096d / logicalSize)
+            throw new ArgumentOutOfRangeException(nameof(scale));
         var size = (int)Math.Round(logicalSize * scale);
         var drawing = new DrawingVisual();
         using (var context = drawing.RenderOpen())
