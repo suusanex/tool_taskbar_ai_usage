@@ -1,0 +1,11 @@
+[
+  { "provider": "Codex", "metrics": [
+    { "label": "5h", "remaining_percent": 83.0, "resets_at": "2026-10-20T13:00:11+09:00" },
+    { "label": "Weekly", "remaining_percent": 23.0, "resets_at": "2026-10-25T08:02:07+09:00" }
+  ] },
+  { "provider": "Grok", "metrics": [
+    { "label": "Weekly", "remaining_percent": 53.0, "resets_at": "2026-10-24T19:40:30.895+09:00" },
+    { "label": "Monthly", "remaining_percent": 99.0, "resets_at": "2026-11-20T00:00:00+09:00" }
+  ] },
+  { "provider": "Cursor", "metrics": [ { "label": "Weekly", "remaining_percent": 52.35 } ] }
+]
