@@ -14,6 +14,8 @@ public sealed class UsageUpdater(IUsageSource process)
     public bool IsUpdating => gate.CurrentCount == 0;
     public event EventHandler<UpdateState>? StateChanged;
 
+    public void StopForShutdown(TimeSpan waitLimit) => process.StopForShutdown(waitLimit);
+
     public async Task<bool> RefreshAsync(CancellationToken cancellationToken = default)
     {
         if (!await gate.WaitAsync(0, cancellationToken))
@@ -23,7 +25,7 @@ public sealed class UsageUpdater(IUsageSource process)
         {
             try
             {
-                var output = await process.ReadJsonAsync(cancellationToken);
+                var output = await process.ReadJsonAsync(cancellationToken).ConfigureAwait(false);
                 var parsed = UsageParser.Parse(output);
                 var errors = JoinErrors(parsed.CodexError, parsed.GrokError);
                 state = new(parsed, attempted, errors is null ? attempted : state.LastSuccessAt, errors);

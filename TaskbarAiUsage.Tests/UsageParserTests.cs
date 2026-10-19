@@ -1,4 +1,6 @@
 using System.IO;
+using System.Globalization;
+using System.Diagnostics;
 using System.Text.Json;
 using TaskbarAiUsage;
 
@@ -29,6 +31,25 @@ public sealed class UsageParserTests
     {
         var parsed = UsageParser.Parse(BuildJson(input, 10, 20));
         Assert.Equal(expected, parsed.Codex5Hour?.RemainingPercent);
+    }
+
+    [Fact]
+    public void GeneratedJsonUsesInvariantNumberFormattingUnderGermanCulture()
+    {
+        var previousCulture = CultureInfo.CurrentCulture;
+        try
+        {
+            CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("de-DE");
+            var json = BuildJson(73.8, 45.5, 9.9);
+            Assert.Contains("73.8", json);
+            Assert.Equal(73, UsageParser.Parse(json).Codex5Hour?.RemainingPercent);
+            Assert.Equal(45, UsageParser.Parse(json).CodexWeekly?.RemainingPercent);
+            Assert.Equal(9, UsageParser.Parse(json).GrokWeekly?.RemainingPercent);
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = previousCulture;
+        }
     }
 
     [Theory]
@@ -79,14 +100,63 @@ public sealed class UsageParserTests
             Assert.Null(UsageParser.Parse(json).Codex5Hour);
     }
 
-    private static string BuildJson(double fiveHour, double weekly, double grokWeekly) => $$"""
+    private static string BuildJson(double fiveHour, double weekly, double grokWeekly) => FormattableString.Invariant($$"""
         [{"provider":"Codex","metrics":[{"label":"5h","remaining_percent":{{fiveHour}}},{"label":"Weekly","remaining_percent":{{weekly}}}]},
          {"provider":"Grok","metrics":[{"label":"Weekly","remaining_percent":{{grokWeekly}}}]}]
-        """;
+        """);
 }
 
 public sealed class UsageProcessTests
 {
+    [Fact]
+    public async Task TimedOutOutputReadAfterParentExitReleasesUpdateGate()
+    {
+        var childPidFile = Path.Combine(Path.GetTempPath(), $"taskbar-child-{Guid.NewGuid():N}.pid");
+        var fixture = Path.Combine(AppContext.BaseDirectory, "TaskbarAiUsage.ProcessFixture.exe");
+        var source = new RecoveringProcessSource(
+            new UsageProcess(fixture, TimeSpan.FromMilliseconds(500), ["--exit-with-child", childPidFile]));
+        var updater = new UsageUpdater(source);
+        try
+        {
+            Assert.True(await updater.RefreshAsync());
+            Assert.True(File.Exists(childPidFile));
+            Assert.Contains("did not finish", updater.State.FailureSummary);
+            Assert.True(await updater.RefreshAsync());
+            Assert.Null(updater.State.FailureSummary);
+            Assert.Equal(61, updater.State.Values.Codex5Hour?.RemainingPercent);
+        }
+        finally
+        {
+            StopChild(childPidFile);
+        }
+    }
+
+    [Fact]
+    public async Task ShutdownStopKillsActiveProcessAndWaitsWithinBound()
+    {
+        var childPidFile = Path.Combine(Path.GetTempPath(), $"taskbar-shutdown-child-{Guid.NewGuid():N}.pid");
+        var fixture = Path.Combine(AppContext.BaseDirectory, "TaskbarAiUsage.ProcessFixture.exe");
+        var source = new UsageProcess(fixture, TimeSpan.FromSeconds(30), ["--spawn-child-and-wait", childPidFile]);
+        using var callerCancellation = new CancellationTokenSource();
+        try
+        {
+            var read = source.ReadJsonAsync(callerCancellation.Token);
+            for (var attempt = 0; attempt < 40 && !File.Exists(childPidFile); attempt++)
+                await Task.Delay(50);
+            Assert.True(File.Exists(childPidFile));
+            var stopwatch = Stopwatch.StartNew();
+            source.StopForShutdown(TimeSpan.FromSeconds(2));
+            stopwatch.Stop();
+            Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(3));
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => read);
+            Assert.False(IsProcessRunning(ReadChildProcessId(childPidFile)));
+        }
+        finally
+        {
+            StopChild(childPidFile);
+        }
+    }
+
     [Fact]
     public async Task NonZeroExitDoesNotReturnOutput()
     {
@@ -108,6 +178,40 @@ public sealed class UsageProcessTests
     {
         var source = new UsageProcess(Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".exe"), TimeSpan.FromSeconds(1));
         await Assert.ThrowsAsync<FileNotFoundException>(() => source.ReadJsonAsync(CancellationToken.None));
+    }
+
+    private static void StopChild(string pidFile)
+    {
+        try
+        {
+            if (!File.Exists(pidFile) || !int.TryParse(File.ReadAllText(pidFile), out var processId))
+                return;
+            using var child = Process.GetProcessById(processId);
+            if (!child.HasExited)
+                child.Kill(entireProcessTree: true);
+            child.WaitForExit(3000);
+        }
+        catch (ArgumentException) { }
+        finally
+        {
+            if (File.Exists(pidFile))
+                File.Delete(pidFile);
+        }
+    }
+
+    private static int ReadChildProcessId(string pidFile) => int.Parse(File.ReadAllText(pidFile), CultureInfo.InvariantCulture);
+
+    private static bool IsProcessRunning(int processId)
+    {
+        try
+        {
+            using var process = Process.GetProcessById(processId);
+            return !process.HasExited;
+        }
+        catch (ArgumentException)
+        {
+            return false;
+        }
     }
 }
 
@@ -152,6 +256,11 @@ public sealed class RendererAndLifecycleTests
             Assert.Equal(32, TaskbarIconRenderer.Render(null, 53).PixelWidth);
             Assert.Equal(32, TaskbarIconRenderer.Render(73, null).PixelWidth);
             Assert.Equal(64, TaskbarIconRenderer.Render(null, null, scale: 2).PixelWidth);
+            Assert.Equal(144, TaskbarIconRenderer.Render(45, 67, scale: 4.5).PixelWidth);
+            Assert.Equal(160, TaskbarIconRenderer.Render(45, 67, scale: 5).PixelWidth);
+            Assert.Throws<ArgumentOutOfRangeException>(() => TaskbarIconRenderer.Render(45, 67, scale: double.NaN));
+            Assert.Throws<ArgumentOutOfRangeException>(() => TaskbarIconRenderer.Render(45, 67, scale: double.PositiveInfinity));
+            Assert.Throws<ArgumentOutOfRangeException>(() => TaskbarIconRenderer.Render(45, 67, scale: 0));
             Assert.Throws<ArgumentOutOfRangeException>(() => TaskbarIconRenderer.Render(101, 2));
             var preview = TaskbarIconRenderer.Render(73, 53, scale: 4);
             DirectoryInfo? testProject = new(AppContext.BaseDirectory);
@@ -232,6 +341,7 @@ internal sealed class BlockingSource : IUsageSource
     public TaskCompletionSource Started { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
     public TaskCompletionSource Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
     public int Calls { get; private set; }
+    public void StopForShutdown(TimeSpan waitLimit) => Release.TrySetCanceled();
     public async Task<string> ReadJsonAsync(CancellationToken cancellationToken)
     {
         Calls++;
@@ -244,9 +354,20 @@ internal sealed class BlockingSource : IUsageSource
 internal sealed class SequenceSource(string success, Exception failure) : IUsageSource
 {
     private int calls;
+    public void StopForShutdown(TimeSpan waitLimit) { }
     public Task<string> ReadJsonAsync(CancellationToken cancellationToken)
     {
         if (Interlocked.Increment(ref calls) == 1) return Task.FromResult(success);
         return Task.FromException<string>(failure);
     }
+}
+
+internal sealed class RecoveringProcessSource(UsageProcess process) : IUsageSource
+{
+    private int calls;
+    public void StopForShutdown(TimeSpan waitLimit) => process.StopForShutdown(waitLimit);
+    public Task<string> ReadJsonAsync(CancellationToken cancellationToken) =>
+        Interlocked.Increment(ref calls) == 1
+            ? process.ReadJsonAsync(cancellationToken)
+            : Task.FromResult("[{\"provider\":\"Codex\",\"metrics\":[{\"label\":\"5h\",\"remaining_percent\":61},{\"label\":\"Weekly\",\"remaining_percent\":31}]},{\"provider\":\"Grok\",\"metrics\":[{\"label\":\"Weekly\",\"remaining_percent\":51}]}]");
 }
