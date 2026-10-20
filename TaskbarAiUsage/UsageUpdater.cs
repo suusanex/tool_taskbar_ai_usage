@@ -154,10 +154,3 @@ internal static class SafeLog
         }
     }
 }
-
-public sealed class WindowLifetimePolicy
-{
-    private bool shutdownAllowed;
-    public bool ShouldMinimizeOnClose => !shutdownAllowed;
-    public void AllowShutdown() => shutdownAllowed = true;
-}

@@ -12,8 +12,6 @@ public partial class MainWindow : Window
     private readonly System.Windows.Threading.DispatcherTimer timer;
     private readonly CancellationTokenSource lifetime = new();
     private Task activeRefresh = Task.CompletedTask;
-    private readonly WindowLifetimePolicy lifetimePolicy = new();
-
     public MainWindow()
     {
         InitializeComponent();
@@ -50,12 +48,10 @@ public partial class MainWindow : Window
     private async void Exit_Click(object sender, RoutedEventArgs e)
     {
         await BeginShutdownAsync();
-        Application.Current.Shutdown();
     }
 
     public async Task BeginShutdownAsync()
     {
-        lifetimePolicy.AllowShutdown();
         timer.Stop();
         lifetime.Cancel();
         SafeLog.Write("application-exit", "Application is shutting down.");
@@ -65,7 +61,6 @@ public partial class MainWindow : Window
 
     public void BeginSessionShutdown()
     {
-        lifetimePolicy.AllowShutdown();
         timer.Stop();
         lifetime.Cancel();
         SafeLog.Write("windows-session-ending", "Windows is ending the session.");
@@ -74,13 +69,9 @@ public partial class MainWindow : Window
 
     protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
     {
-        if (lifetimePolicy.ShouldMinimizeOnClose)
-        {
-            e.Cancel = true;
-            WindowState = WindowState.Minimized;
-            return;
-        }
         timer.Stop();
+        lifetime.Cancel();
+        updater.StopForShutdown(TimeSpan.FromSeconds(2));
         base.OnClosing(e);
     }
 

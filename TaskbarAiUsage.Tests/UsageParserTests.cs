@@ -295,12 +295,16 @@ public sealed class RendererAndLifecycleTests
     }
 
     [Fact]
-    public void CloseMinimizesUntilExplicitExitOrWindowsShutdown()
+    public void WindowCloseIsTheExitAction()
     {
-        var lifecycle = new WindowLifetimePolicy();
-        Assert.True(lifecycle.ShouldMinimizeOnClose);
-        lifecycle.AllowShutdown();
-        Assert.False(lifecycle.ShouldMinimizeOnClose);
+        var testProject = new DirectoryInfo(AppContext.BaseDirectory);
+        while (testProject is not null && !File.Exists(Path.Combine(testProject.FullName, "TaskbarAiUsage.Tests.csproj")))
+            testProject = testProject.Parent;
+        Assert.NotNull(testProject);
+        var repository = Directory.GetParent(testProject!.FullName);
+        Assert.NotNull(repository);
+        var appXaml = File.ReadAllText(Path.Combine(repository!.FullName, "TaskbarAiUsage", "App.xaml"));
+        Assert.Contains("ShutdownMode=\"OnMainWindowClose\"", appXaml, StringComparison.Ordinal);
     }
 
     private static void RunSta(Action action)
