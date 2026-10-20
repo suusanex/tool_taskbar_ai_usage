@@ -20,7 +20,9 @@ public static class UsageParser
 
         var providers = document.RootElement.EnumerateArray().Where(p => p.ValueKind == JsonValueKind.Object).ToArray();
         var codex = providers.Where(p => ProviderIs(p, "Codex")).ToArray();
-        var grok = providers.FirstOrDefault(p => ProviderIs(p, "Grok"));
+        var xProvider = providers.FirstOrDefault(p => ProviderIs(p, "Cursor"));
+        if (xProvider.ValueKind == JsonValueKind.Undefined)
+            xProvider = providers.FirstOrDefault(p => ProviderIs(p, "Grok"));
         UsageMetric? fiveHour = null;
         UsageMetric? codexWeekly = null;
         UsageMetric? grokWeekly = null;
@@ -42,11 +44,11 @@ public static class UsageParser
             }
         }
 
-        if (grok.ValueKind == JsonValueKind.Undefined)
-            grokError = "Tokscale did not return a Grok provider.";
+        if (xProvider.ValueKind == JsonValueKind.Undefined)
+            grokError = "Tokscale did not return a Cursor provider for The X usage.";
         else
         {
-            grokWeekly = FindMetric(grok, "Weekly", out grokError);
+            grokWeekly = FindMetric(xProvider, "Weekly", out grokError);
         }
 
         return new(fiveHour, codexWeekly, grokWeekly, codexError, grokError);

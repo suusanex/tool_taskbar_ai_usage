@@ -7,5 +7,5 @@
     { "label": "Weekly", "remaining_percent": 53.0, "resets_at": "2026-10-24T19:40:30.895+09:00" },
     { "label": "Monthly", "remaining_percent": 99.0, "resets_at": "2026-11-20T00:00:00+09:00" }
   ] },
-  { "provider": "Cursor", "metrics": [ { "label": "Weekly", "remaining_percent": 52.35 } ] }
+  { "provider": "Cursor", "metrics": [ { "label": "Weekly", "remaining_percent": 52.35, "resets_at": "2026-10-24T10:40:30.895Z" } ] }
 ]

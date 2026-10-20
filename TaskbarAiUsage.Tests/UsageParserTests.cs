@@ -16,10 +16,28 @@ public sealed class UsageParserTests
         var parsed = UsageParser.Parse(Fixture);
         Assert.Equal(83, parsed.Codex5Hour?.RemainingPercent);
         Assert.Equal(23, parsed.CodexWeekly?.RemainingPercent);
-        Assert.Equal(53, parsed.GrokWeekly?.RemainingPercent);
+        Assert.Equal(52, parsed.GrokWeekly?.RemainingPercent);
         Assert.Equal(TimeSpan.FromHours(9), parsed.Codex5Hour?.ResetsAt?.Offset);
         Assert.Null(parsed.CodexError);
         Assert.Null(parsed.GrokError);
+    }
+
+    [Fact]
+    public void PrefersCursorWeeklyForTheXWhenCursorAndGrokAreBothPresent()
+    {
+        var parsed = UsageParser.Parse(Fixture);
+        Assert.Equal(52, parsed.GrokWeekly?.RemainingPercent);
+        Assert.Equal(DateTimeOffset.Parse("2026-10-24T10:40:30.895Z", CultureInfo.InvariantCulture), parsed.GrokWeekly?.ResetsAt);
+    }
+
+    [Fact]
+    public void SupportsLegacyGrokProviderWhenCursorIsAbsent()
+    {
+        var parsed = UsageParser.Parse("""
+            [{"provider":"Codex","metrics":[{"label":"5h","remaining_percent":40}]},
+             {"provider":"Grok","metrics":[{"label":"Weekly","remaining_percent":53}]}]
+            """);
+        Assert.Equal(53, parsed.GrokWeekly?.RemainingPercent);
     }
 
     [Theory]

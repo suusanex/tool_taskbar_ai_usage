@@ -8,14 +8,14 @@
 - 実行コマンド: npm package内のWindows x64 `tokscale.exe usage --json`（プロセス直接起動）
 - 結果: exit code 0、Codex entry 1件（`account` はnull）、Codex `5h` 83%、`Weekly` 23%、Grok `Weekly` 53%。リセット日時も取得できた。
 - この実測でCodex 5h / Weekly と The X (Grok) Weeklyの値が確認できたため、Tokscaleを取得元として採用した。
-- `Cursor Weekly` や `Grok Monthly` はGrok Weeklyの代用にしない。
+- The X の週次利用枠は `Cursor` provider の `Weekly` metric から取得する。古いTokscale出力に `Cursor` がない場合は、互換性のため `Grok` provider の `Weekly` を使う。`Grok Monthly` は代用にしない。
 - `Fixtures/tokscale-sanitized.json` はprovider、必要なmetric label、remaining percent、reset時刻だけを残したfixture。Tokscaleの生出力、アカウント識別情報、認証情報は含めていない。
 
 ## 自動検証
 
 | 項目 | 結果 |
 |---|---|
-| JSON parser: 対象provider / 期間、欠損、型不正、範囲外、複数Codexとactive選択、%切捨て | 合格 |
+| JSON parser: Codex対象期間、Cursor優先のThe X週次枠、旧Grok形式互換、欠損、型不正、範囲外、複数Codexとactive選択、%切捨て | 合格 |
 | CLI process: 非0終了、欠損実行ファイル、timeout時の子プロセス終了 | 合格 |
 | 更新の重複防止、失敗時に前回値を現在値として残さない | 合格 |
 | アイコン描画: 0 / 7 / 73 / 100 / `--`、100% / 150% / 200% / 450% / 500%相当の出力寸法、非有限倍率拒否 | 合格 |
@@ -46,7 +46,7 @@ Purpose Review round 1 の5件のinline指摘（重複1件を含む、4テーマ
 この作業環境からWindowsネイティブのデスクトップUIを操作する手段は使えない。よって、発行したアプリをユーザーが初回起動するときに次を確認する。
 
 1. `artifacts\publish\win-x64\TaskbarAiUsage.exe` を起動し、タスクバーに通常のアプリアイコンが現れることを確認する。アプリは最小化状態で起動する。
-2. アイコンの上段がCodex 5h、下段がGrok Weeklyであることを確認する。詳細画面でCodex WeeklyとGrok Weeklyを照合する。
+2. アイコンの上段がCodex 5h、下段がThe X Weeklyであることを確認する。詳細画面でCodex WeeklyとThe X Weeklyを照合する。
 3. タスクバーのボタンをクリックし、詳細画面が開くことを確認する。閉じるボタンとAlt+F4それぞれで最小化し、タスクバーアイコンが残ること、再クリックで戻ることを確認する。
 4. 「更新」を押し、最終試行時刻が変わること、正常取得後に最終成功時刻と各値が更新されることを確認する。
 5. 画面倍率100%、150%、200%で、ライトテーマとダークテーマをそれぞれ確認する。アイコンの数字が切れず、上下段を読み分けられることを確認する。
