@@ -12,6 +12,7 @@ public partial class MainWindow : Window
     private readonly System.Windows.Threading.DispatcherTimer timer;
     private readonly CancellationTokenSource lifetime = new();
     private Task activeRefresh = Task.CompletedTask;
+    private NativeWindowIcon? nativeIcon;
     public MainWindow()
     {
         InitializeComponent();
@@ -29,11 +30,19 @@ public partial class MainWindow : Window
         timer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(settings.UpdateIntervalSeconds) };
         timer.Tick += (_, _) => _ = RefreshInBackgroundAsync();
         timer.Start();
+        SourceInitialized += (_, _) =>
+        {
+            var source = (HwndSource?)PresentationSource.FromVisual(this);
+            if (source is null) return;
+            WindowPinningPolicy.TryPreventPinning(source.Handle);
+            nativeIcon = new NativeWindowIcon(source.Handle);
+            ShellWindowMessages.EnsureRegistered();
+            source.AddHook(WindowMessageHook);
+            UpdateIcon(updater.State.Values.Codex5Hour?.RemainingPercent, updater.State.Values.GrokWeekly?.RemainingPercent);
+        };
         Render(updater.State);
         Loaded += (_, _) =>
         {
-            var source = (HwndSource?)PresentationSource.FromVisual(this);
-            source?.AddHook(WindowMessageHook);
             _ = RefreshInBackgroundAsync();
         };
     }
@@ -75,6 +84,13 @@ public partial class MainWindow : Window
         base.OnClosing(e);
     }
 
+    protected override void OnClosed(EventArgs e)
+    {
+        nativeIcon?.Dispose();
+        nativeIcon = null;
+        base.OnClosed(e);
+    }
+
     private void Render(UpdateState state)
     {
         SetMetric(Codex5h, Codex5hReset, state.Values.Codex5Hour);
@@ -103,12 +119,20 @@ public partial class MainWindow : Window
     {
         var dpi = VisualTreeHelper.GetDpi(this);
         Icon = TaskbarIconRenderer.Render(upper, lower, scale: dpi.DpiScaleX);
+        nativeIcon?.Apply(TaskbarIconRenderer.Render(upper, lower, logicalSize: 256));
     }
 
-    private static IntPtr WindowMessageHook(IntPtr hwnd, int message, IntPtr wParam, IntPtr lParam, ref bool handled)
+    private IntPtr WindowMessageHook(IntPtr hwnd, int message, IntPtr wParam, IntPtr lParam, ref bool handled)
     {
-        if (message == 0x02E0 && Application.Current.MainWindow is MainWindow window)
-            window.Dispatcher.BeginInvoke(new Action(() => window.UpdateIcon(window.updater.State.Values.Codex5Hour?.RemainingPercent, window.updater.State.Values.GrokWeekly?.RemainingPercent)));
+        var isDpiChange = message == TaskbarIconMessageRouter.WmDpiChanged;
+        TaskbarIconMessageRouter.Handle(message, ShellWindowMessages.TaskbarButtonCreated, ShellWindowMessages.TaskbarCreated, () =>
+        {
+            void Reapply() => UpdateIcon(updater.State.Values.Codex5Hour?.RemainingPercent, updater.State.Values.GrokWeekly?.RemainingPercent);
+            if (isDpiChange)
+                Dispatcher.BeginInvoke(new Action(Reapply));
+            else
+                Reapply();
+        });
         return IntPtr.Zero;
     }
 

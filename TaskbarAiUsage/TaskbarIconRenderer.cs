@@ -7,12 +7,11 @@ namespace TaskbarAiUsage;
 
 public static class TaskbarIconRenderer
 {
-    public static BitmapSource Render(int? upper, int? lower, bool darkTheme = false, double scale = 1)
+    public static BitmapSource Render(int? upper, int? lower, bool darkTheme = false, double scale = 1, int logicalSize = 32)
     {
         Validate(upper);
         Validate(lower);
-        const int logicalSize = 32;
-        if (!double.IsFinite(scale) || scale < 0.5 || scale > 4096d / logicalSize)
+        if (logicalSize is < 16 or > 256 || !double.IsFinite(scale) || scale < 0.5 || scale > 4096d / logicalSize)
             throw new ArgumentOutOfRangeException(nameof(scale));
         var size = (int)Math.Round(logicalSize * scale);
         var drawing = new DrawingVisual();
@@ -21,9 +20,9 @@ public static class TaskbarIconRenderer
             var background = darkTheme ? Color.FromRgb(35, 35, 35) : Color.FromRgb(250, 250, 250);
             var foreground = darkTheme ? Colors.White : Colors.Black;
             context.DrawRectangle(new SolidColorBrush(background), null, new Rect(0, 0, logicalSize, logicalSize));
-            context.DrawLine(new Pen(new SolidColorBrush(darkTheme ? Colors.Gray : Colors.DarkGray), 1), new Point(2, logicalSize / 2d), new Point(logicalSize - 2, logicalSize / 2d));
-            DrawNumber(context, upper, 0, logicalSize / 2d, foreground);
-            DrawNumber(context, lower, logicalSize / 2d, logicalSize / 2d, foreground);
+            context.DrawLine(new Pen(new SolidColorBrush(darkTheme ? Colors.Gray : Colors.DarkGray), logicalSize / 32d), new Point(logicalSize / 16d, logicalSize / 2d), new Point(logicalSize - logicalSize / 16d, logicalSize / 2d));
+            DrawNumber(context, upper, 0, logicalSize / 2d, foreground, logicalSize);
+            DrawNumber(context, lower, logicalSize / 2d, logicalSize / 2d, foreground, logicalSize);
         }
 
         var bitmap = new RenderTargetBitmap(size, size, 96 * scale, 96 * scale, PixelFormats.Pbgra32);
@@ -32,13 +31,13 @@ public static class TaskbarIconRenderer
         return bitmap;
     }
 
-    private static void DrawNumber(DrawingContext context, int? value, double top, double height, Color color)
+    private static void DrawNumber(DrawingContext context, int? value, double top, double height, Color color, int logicalSize)
     {
         var text = value?.ToString(CultureInfo.InvariantCulture) ?? "--";
         var formatted = new FormattedText(text, CultureInfo.InvariantCulture, FlowDirection.LeftToRight,
-            new Typeface("Segoe UI"), text.Length == 3 ? 32 * 0.30 : 32 * 0.38,
+            new Typeface("Segoe UI"), logicalSize * (text.Length == 3 ? 0.30 : 0.38),
             new SolidColorBrush(color), 1);
-        context.DrawText(formatted, new Point((32 - formatted.Width) / 2d, top + (height - formatted.Height) / 2d - 1));
+        context.DrawText(formatted, new Point((logicalSize - formatted.Width) / 2d, top + (height - formatted.Height) / 2d - logicalSize / 32d));
     }
 
     private static void Validate(int? value)
